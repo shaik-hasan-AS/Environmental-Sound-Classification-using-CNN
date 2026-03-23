@@ -1,12 +1,12 @@
 {
   "dataset": "esc50",
-  "mean_acc": 80.75,
+  "mean_acc": 81.25,
   "std_acc": 0.0,
-  "best_acc": 80.75,
+  "best_acc": 81.25,
   "per_fold": [
     {
       "fold": 1,
-      "acc": 80.75
+      "acc": 81.25
     }
   ]
 }

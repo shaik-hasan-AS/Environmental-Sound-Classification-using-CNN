@@ -181,15 +181,15 @@ def train_one_epoch(
         optimizer.zero_grad(set_to_none=True)
 
         with autocast(enabled=scaler.is_enabled()):
-            outputs = model(specs)                          # (fused, ce, ls)
-            logits_fused, logits_ce, logits_ls = outputs
+            outputs = model(specs)                          # (fused, ce, proj_supcon)
+            logits_fused, logits_ce, proj_supcon = outputs
 
             if use_mixup and soft_labels is not None:
-                # Use soft CE for all heads when mixup is active
+                # Use soft CE for fused/ce heads, but standard SupCon for the projection head using hard majority labels
                 loss = (
                     TCFG.LAMBDA_CE    * soft_cross_entropy(logits_ce,    soft_labels)
-                  + TCFG.LAMBDA_LS    * soft_cross_entropy(logits_ls,    soft_labels)
                   + TCFG.LAMBDA_FUSED * soft_cross_entropy(logits_fused, soft_labels)
+                  + TCFG.LAMBDA_LS    * loss_fn.supcon_loss(proj_supcon, hard_labels)
                 )
             else:
                 loss = loss_fn(outputs, hard_labels)
@@ -237,7 +237,7 @@ def validate(
         labels = labels.to(device, non_blocking=True)
 
         outputs = model(specs)
-        logits_fused, logits_ce, logits_ls = outputs
+        logits_fused, logits_ce, proj_supcon = outputs
 
         loss  = loss_fn(outputs, labels)
 
