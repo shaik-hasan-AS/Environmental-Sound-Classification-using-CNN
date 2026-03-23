@@ -7,7 +7,7 @@ class DepthwiseSeparableConv(nn.Module):
         self.depthwise = nn.Conv2d(in_ch, in_ch, kernel_size=3, padding=1, stride=stride, groups=in_ch, bias=False)
         self.pointwise = nn.Conv2d(in_ch, out_ch, kernel_size=1, bias=False)
         self.bn = nn.BatchNorm2d(out_ch)
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.SiLU(inplace=True)
 
     def forward(self, x):
         return self.relu(self.bn(self.pointwise(self.depthwise(x))))
@@ -17,7 +17,7 @@ class MRAFCNNBlock(nn.Module):
         super().__init__()
         self.conv1 = nn.Conv2d(in_ch, out_ch, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(out_ch)
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.SiLU(inplace=True)
         # Expected by GradCAM in evaluate.py: target_layer = model.stage3[-1].conv2.pointwise
         self.conv2 = DepthwiseSeparableConv(out_ch, out_ch, stride=stride)
         
@@ -32,7 +32,7 @@ class MRAFCNNBlock(nn.Module):
         self.ca = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
             nn.Conv2d(out_ch, out_ch // 4 if out_ch // 4 > 0 else 1, 1),
-            nn.ReLU(inplace=True),
+            nn.SiLU(inplace=True),
             nn.Conv2d(out_ch // 4 if out_ch // 4 > 0 else 1, out_ch, 1),
             nn.Sigmoid()
         )
@@ -51,7 +51,7 @@ class MRAFCNN(nn.Module):
         self.stem = nn.Sequential(
             nn.Conv2d(1, base_channels, kernel_size=3, stride=2, padding=1, bias=False),
             nn.BatchNorm2d(base_channels),
-            nn.ReLU(inplace=True)
+            nn.SiLU(inplace=True)
         )
         
         self.stage1 = self._make_stage(base_channels, base_channels*2, num_blocks=2, stride=2)

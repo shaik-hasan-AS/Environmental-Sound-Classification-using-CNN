@@ -55,8 +55,9 @@ def set_seed(seed: int = 42):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark     = False
+    # For fixed-size convolutions (like 128x128 mels), benchmark=True is much faster
+    torch.backends.cudnn.deterministic = False
+    torch.backends.cudnn.benchmark     = True
 
 
 # ---------------------------------------------------------------------------
@@ -79,7 +80,7 @@ class TrainConfig:
 
     # Training
     BATCH_SIZE:    int   = 32
-    NUM_WORKERS:   int   = 4
+    NUM_WORKERS:   int   = 0
     EPOCHS:        int   = 200
     GRAD_CLIP:     float = 5.0
 
@@ -308,12 +309,12 @@ def train_fold(
     # ---- Data loaders ----
     train_dl = get_dataloader(
         train_ds, batch_size=TCFG.BATCH_SIZE,
-        shuffle=True,  num_workers=TCFG.NUM_WORKERS,
+        shuffle=True,  num_workers=args.num_workers,
         use_mixup=TCFG.USE_MIXUP, mixup_alpha=TCFG.MIXUP_ALPHA
     )
     test_dl = get_dataloader(
         test_ds, batch_size=TCFG.BATCH_SIZE,
-        shuffle=False, num_workers=TCFG.NUM_WORKERS,
+        shuffle=False, num_workers=args.num_workers,
         use_mixup=False
     )
 
@@ -555,6 +556,8 @@ def parse_args():
                    help=f'Learning rate (default: {TCFG.LR})')
     p.add_argument('--base_channels', type=int, default=64,
                    help='Base channel width (default: 64)')
+    p.add_argument('--num_workers', type=int, default=TCFG.NUM_WORKERS,
+                   help=f'Number of data loading workers (default: {TCFG.NUM_WORKERS})')
     p.add_argument('--no_mixup', action='store_true',
                    help='Disable Mixup augmentation')
     p.add_argument('--no_amp', action='store_true',
@@ -563,6 +566,7 @@ def parse_args():
                    help='Cache all spectrograms in RAM')
     p.add_argument('--resume', type=str, default=None,
                    help='Path to checkpoint to resume from')
+
     p.add_argument('--seed', type=int, default=TCFG.SEED,
                    help=f'Random seed (default: {TCFG.SEED})')
     return p.parse_args()
@@ -579,5 +583,6 @@ if __name__ == '__main__':
     TCFG.AMP        = not args.no_amp
     TCFG.CACHE      = args.cache
     TCFG.SEED       = args.seed
+    TCFG.NUM_WORKERS = args.num_workers
 
     run_cross_validation(args)
