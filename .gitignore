@@ -1,0 +1,21 @@
+# Datasets
+ESC-50/
+UrbanSound8K/
+
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# Model Checkpoints & Tensorboard Logs
+checkpoints/
+runs/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+
+# IDEs
+.idea/
+.vscode/

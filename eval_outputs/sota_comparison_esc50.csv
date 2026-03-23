@@ -1,0 +1,9 @@
+Model,Accuracy (%),Type,Year
+HTSAT-22,98.25,Hierarchical Transformer,2022
+TSCNN-DS,97.20,CNN (two-stream),2022
+AST,95.60,Transformer,2021
+RACNN,91.00,CNN (resource-adaptive),2022
+TF-Attention CNN,84.40,CNN + attention,2021
+Human baseline,81.30,—,—
+MR-AFCNN (Ours),80.25,CNN (novel),2025
+Piczak CNN (baseline),64.50,CNN,2015

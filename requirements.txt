@@ -1,0 +1,10 @@
+tensorboard
+torch
+torchvision
+torchaudio
+numpy
+pandas
+librosa
+soundfile
+matplotlib
+seaborn
