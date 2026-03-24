@@ -123,12 +123,20 @@ def resize_spectrogram(spec: np.ndarray,
 
 def audio_to_tensor(path: str) -> torch.Tensor:
     """
-    Full pipeline: audio file → [1, TARGET_MELS, TARGET_FRAMES] tensor.
+    Full pipeline: audio file → [3, TARGET_MELS, TARGET_FRAMES] tensor.
+    Channels: [static_mel, delta, delta-delta]
     """
     y   = load_audio(path)
     mel = extract_log_mel(y)
     mel = resize_spectrogram(mel)
-    return torch.from_numpy(mel).unsqueeze(0)   # [1, F, T]
+    
+    # Compute delta (velocity) and delta-delta (acceleration)
+    delta   = librosa.feature.delta(mel, order=1)
+    delta2  = librosa.feature.delta(mel, order=2)
+    
+    # Stack as 3 channels: [3, F, T]
+    stacked = np.stack([mel, delta, delta2], axis=0)
+    return torch.from_numpy(stacked)   # [3, F, T]
 
 
 # ---------------------------------------------------------------------------
@@ -575,7 +583,7 @@ if __name__ == '__main__':
     print("=" * 60)
 
     # Validate transforms with synthetic data
-    spec = torch.randn(1, 128, 128)
+    spec = torch.randn(3, 128, 128)
 
     sa     = SpecAugment()
     ts     = TimeShift()
@@ -595,7 +603,7 @@ if __name__ == '__main__':
     print(f"  After test transforms:    {list(test_t(spec).shape)}")
 
     # Validate Mixup collate with dummy batch
-    dummy_batch = [(torch.randn(1, 128, 128), i % 50) for i in range(8)]
+    dummy_batch = [(torch.randn(3, 128, 128), i % 50) for i in range(8)]
     mixed_specs, mixed_labels = mixup_collate(dummy_batch, alpha=0.4, num_classes=50)
     print(f"\n  Mixup specs shape:        {list(mixed_specs.shape)}")
     print(f"  Mixup labels shape:       {list(mixed_labels.shape)}")

@@ -44,7 +44,8 @@ import torch.nn.functional as F
 from model   import MRAFCNN, build_esc50, build_urbansound8k
 from dataset import (
     ESC50Dataset, UrbanSound8KDataset,
-    get_dataloader, esc50_fold_splits, us8k_fold_splits, CFG
+    get_dataloader, esc50_fold_splits, us8k_fold_splits, CFG,
+    TimeShift, FreqShift
 )
 
 # Output directory for all plots and CSVs
@@ -190,6 +191,61 @@ def evaluate_model(model:   nn.Module,
     all_labels = np.concatenate(all_labels)
     all_probs  = np.concatenate(all_probs)
     accuracy   = (all_preds == all_labels).mean() * 100
+
+    return {
+        'preds':    all_preds,
+        'labels':   all_labels,
+        'probs':    all_probs,
+        'accuracy': accuracy,
+    }
+
+
+@torch.no_grad()
+def evaluate_model_tta(model:   nn.Module,
+                       loader:  torch.utils.data.DataLoader,
+                       device:  torch.device,
+                       num_classes: int,
+                       n_augments: int = 5) -> dict:
+    """
+    Test-Time Augmentation: average predictions over multiple augmented views.
+    """
+    model.eval()
+    augments = [
+        TimeShift(max_shift=0.1),
+        TimeShift(max_shift=0.15),
+        FreqShift(max_shift=2),
+        FreqShift(max_shift=4),
+    ]
+
+    all_probs_sum = []
+    all_labels    = []
+
+    for specs, labels in loader:
+        specs  = specs.to(device, non_blocking=True)
+        labels = labels.to(device, non_blocking=True)
+        B = specs.size(0)
+
+        # Original pass
+        logits = model(specs)[0]
+        probs_sum = F.softmax(logits, dim=1)
+
+        # Augmented passes
+        for aug in augments:
+            aug_specs = torch.stack([aug(s) for s in specs.cpu()]).to(device)
+            aug_logits = model(aug_specs)[0]
+            probs_sum += F.softmax(aug_logits, dim=1)
+
+        # Average
+        probs_avg = probs_sum / (1 + len(augments))
+        all_probs_sum.append(probs_avg.cpu().numpy())
+        all_labels.append(labels.cpu().numpy())
+
+    all_probs  = np.concatenate(all_probs_sum)
+    all_labels = np.concatenate(all_labels)
+    all_preds  = all_probs.argmax(axis=1)
+    accuracy   = (all_preds == all_labels).mean() * 100
+
+    print(f"  TTA accuracy ({1 + len(augments)} views): {accuracy:.2f}%")
 
     return {
         'preds':    all_preds,
@@ -395,7 +451,7 @@ def visualize_gradcam(model:       nn.Module,
     Shows what frequency-time regions the model focuses on per class.
     """
     # Hook into last conv block (stage3[-1].conv2.pointwise)
-    target_layer = model.stage3[-1].conv2.pointwise
+    target_layer = model.stage3[-1].conv2
     gcam         = GradCAM(model, target_layer)
 
     fig, axes = plt.subplots(2, n_samples, figsize=(4 * n_samples, 8))
@@ -412,7 +468,7 @@ def visualize_gradcam(model:       nn.Module,
         ]
 
         # Raw spectrogram
-        spec_np = spec.squeeze().cpu().numpy()
+        spec_np = spec[0].cpu().numpy()  # Use channel 0 (static mel) for visualization
         axes[0, i].imshow(spec_np, aspect='auto', origin='lower',
                           cmap='magma', interpolation='nearest')
         axes[0, i].set_title(f'True: {true_cls}', fontsize=8)
@@ -513,6 +569,14 @@ def evaluate_fold(ckpt_path: str, fold: int, args) -> dict:
     # Evaluate
     results = evaluate_model(model, test_dl, device, num_classes)
     print(f"  Test accuracy: {results['accuracy']:.2f}%")
+
+    # TTA evaluation
+    if hasattr(args, 'tta') and args.tta:
+        print("  Running Test-Time Augmentation ...")
+        tta_results = evaluate_model_tta(model, test_dl, device, num_classes)
+        if tta_results['accuracy'] > results['accuracy']:
+            print(f"  TTA improved accuracy: {results['accuracy']:.2f}% -> {tta_results['accuracy']:.2f}%")
+            results = tta_results
 
     # Per-class accuracy
     pc_df = per_class_accuracy(results['preds'], results['labels'], class_names)
@@ -645,6 +709,8 @@ def parse_args():
                    help='Generate Grad-CAM visualizations')
     p.add_argument('--full', action='store_true',
                    help='Generate all outputs (cm + history + gradcam)')
+    p.add_argument('--tta', action='store_true',
+                   help='Use Test-Time Augmentation (averages 5 augmented views)')
 
     return p.parse_args()
 

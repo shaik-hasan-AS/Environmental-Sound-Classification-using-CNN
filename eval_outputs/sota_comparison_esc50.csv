@@ -4,6 +4,6 @@ TSCNN-DS,97.20,CNN (two-stream),2022
 AST,95.60,Transformer,2021
 RACNN,91.00,CNN (resource-adaptive),2022
 TF-Attention CNN,84.40,CNN + attention,2021
+MR-AFCNN (Ours),83.75,CNN (novel),2025
 Human baseline,81.30,—,—
-MR-AFCNN (Ours),81.25,CNN (novel),2025
 Piczak CNN (baseline),64.50,CNN,2015

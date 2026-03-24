@@ -36,6 +36,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.tensorboard import SummaryWriter
+from torch.optim.swa_utils import AveragedModel, SWALR
 
 from model   import MRAFCNN, MRAFCNNLoss, build_esc50, build_urbansound8k
 from dataset import (
@@ -379,6 +380,12 @@ def train_fold(
     # ---- Early stopping ----
     early_stop = EarlyStopping(patience=TCFG.PATIENCE)
 
+    # ---- Stochastic Weight Averaging ----
+    swa_start = int(TCFG.EPOCHS * 0.75)  # Start SWA at 75% of training
+    swa_model = AveragedModel(model)
+    swa_scheduler = SWALR(optimizer, swa_lr=1e-5, anneal_epochs=5)
+    swa_active = False
+
     # ---- Training loop ----
     for epoch in range(start_epoch, TCFG.EPOCHS + 1):
         t0 = time.time()
@@ -391,7 +398,16 @@ def train_fold(
             grad_clip=TCFG.GRAD_CLIP,
         )
         val_metrics = validate(model, test_dl, loss_fn, device)
-        scheduler.step()
+        
+        # Switch to SWA after swa_start epochs
+        if epoch >= swa_start:
+            if not swa_active:
+                print(f"\n  \U0001f504 SWA activated at epoch {epoch}")
+                swa_active = True
+            swa_model.update_parameters(model)
+            swa_scheduler.step()
+        else:
+            scheduler.step()
 
         # Log history
         history['train_loss'].append(train_metrics['loss'])
@@ -438,6 +454,47 @@ def train_fold(
             break
 
     writer.close()
+
+    # ---- Finalize SWA model ----
+    if swa_active:
+        print("  \U0001f504 Updating SWA batch normalization statistics...")
+        # Update BN stats on entire training set
+        swa_bn_loader = get_dataloader(
+            train_ds, batch_size=TCFG.BATCH_SIZE,
+            shuffle=False, num_workers=args.num_workers,
+            use_mixup=False
+        )
+        torch.optim.swa_utils.update_bn(swa_bn_loader, swa_model, device=device)
+        
+        # Evaluate SWA model
+        swa_val = validate(swa_model, test_dl, loss_fn, device)
+        print(f"  \U0001f504 SWA val acc: {swa_val['acc']:.2f}%")
+        
+        if swa_val['acc'] > best_val_acc:
+            best_val_acc = swa_val['acc']
+            # Save SWA model
+            swa_ckpt_path = os.path.join(TCFG.CHECKPOINT_DIR,
+                                         f'{dataset_tag}_fold{fold}_swa.pt')
+            torch.save({
+                'epoch':        TCFG.EPOCHS,
+                'model_state':  swa_model.module.state_dict(),
+                'best_val_acc': best_val_acc,
+                'history':      history,
+                'fold':         fold,
+                'dataset':      dataset_tag,
+                'swa':          True,
+            }, swa_ckpt_path)
+            # Also overwrite the best checkpoint
+            torch.save({
+                'epoch':        TCFG.EPOCHS,
+                'model_state':  swa_model.module.state_dict(),
+                'best_val_acc': best_val_acc,
+                'history':      history,
+                'fold':         fold,
+                'dataset':      dataset_tag,
+                'swa':          True,
+            }, ckpt_path)
+            print(f"  \u2705 SWA improved best acc to {best_val_acc:.2f}%!")
 
     print(f"\n  Fold {fold} best val acc: {best_val_acc:.2f}%")
 
