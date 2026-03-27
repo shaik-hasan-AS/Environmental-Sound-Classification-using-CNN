@@ -135,10 +135,10 @@ python evaluate.py --dataset esc50 --root ./ESC-50 --ckpt ./checkpoints/esc50_fo
 If you use MR-AFCNN in your research, please cite:
 
 ```bibtex
-@article{mrafcnn2025,
+@article{mrafcnn2026,
   title={MR-AFCNN: An Efficient Multi-Resolution Audio-Frequency CNN for Environmental Sound Classification},
-  author={Shaik Hasan},
-  year={2025}
+  author={Shaik Hasan A S, Prajin S},
+  year={2026}
 }
 ```
 
