@@ -59,6 +59,12 @@ def set_seed(seed: int = 42):
     # For fixed-size convolutions (like 128x128 mels), benchmark=True is much faster
     torch.backends.cudnn.deterministic = False
     torch.backends.cudnn.benchmark     = True
+    
+    # Enable TF32 for faster training on Ampere/Ada GPUs
+    if torch.cuda.is_available():
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
+
 
 
 # ---------------------------------------------------------------------------
@@ -82,7 +88,7 @@ class TrainConfig:
     # Training
     BATCH_SIZE:    int   = 32
     NUM_WORKERS:   int   = 0
-    EPOCHS:        int   = 200
+    EPOCHS:        int   = 300
     GRAD_CLIP:     float = 5.0
 
     # Mixup
@@ -96,7 +102,7 @@ class TrainConfig:
     LABEL_SMOOTH:  float = 0.1
 
     # Early stopping
-    PATIENCE:      int   = 30       # epochs without val improvement
+    PATIENCE:      int   = 40       # epochs without val improvement
 
     # Checkpointing
     CHECKPOINT_DIR: str  = './checkpoints'
@@ -104,7 +110,7 @@ class TrainConfig:
 
     # Misc
     SEED:          int   = 42
-    CACHE:         bool  = False    # True if RAM > 16 GB (loads all spectrograms)
+    CACHE:         bool  = True     # True if RAM > 16 GB (loads all spectrograms)
     AMP:           bool  = True     # mixed precision (disable if CPU-only)
 
 
@@ -381,7 +387,7 @@ def train_fold(
     early_stop = EarlyStopping(patience=TCFG.PATIENCE)
 
     # ---- Stochastic Weight Averaging ----
-    swa_start = int(TCFG.EPOCHS * 0.75)  # Start SWA at 75% of training
+    swa_start = int(TCFG.EPOCHS * 0.60)  # Start SWA at 60% of training
     swa_model = AveragedModel(model)
     swa_scheduler = SWALR(optimizer, swa_lr=1e-5, anneal_epochs=5)
     swa_active = False
