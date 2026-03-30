@@ -41,7 +41,7 @@ Input: [3, 128, 128] (mel + delta + delta-delta)
   ├── Head 2: SupCon projector (384→128, L2-normalized)
   └── Head 3: Fused classifier (384+256→50)
 
-Total Parameters: ~3.0M
+Total Parameters: 3.53M
 ```
 
 ---
@@ -55,8 +55,19 @@ Total Parameters: ~3.0M
 | Human Baseline | — | 81.30% | — |
 | Piczak CNN | — | 64.50% | CNN |
 | TF-Attention CNN | — | 84.40% | CNN + Attention |
-| **MR-AFCNN (Ours)** | **3.5M** | **83.25%** | **Efficient CNN (novel)** |
+| **MR-AFCNN (Ours)** | **3.53M** | **84.20%** | **Efficient CNN (novel)** |
 | AST | 87M | 95.60% | Transformer |
+
+---
+
+## Performance Summary
+
+| Metric | Result |
+|---|---|
+| **Mean Accuracy (5-fold)** | **84.20%** |
+| **Standard Deviation** | ± 3.31% |
+| **Best Fold Accuracy** | **90.00%** |
+| **Model Parameters** | **3.53 Million** |
 
 ---
 
@@ -124,9 +135,9 @@ python evaluate.py --dataset esc50 --root ./ESC-50 --ckpt ./checkpoints/esc50_fo
 - **Cosine Annealing with Warm Restarts** (T₀=50, T_mult=2)
 - **Linear Warmup** (10 epochs)
 - **Gradient Clipping** (max norm = 5.0)
-- **Early Stopping** (patience = 30 epochs)
+- **Early Stopping** (patience = 40 epochs)
 - **Mixed Precision Training** (AMP) on CUDA
-- **SWA** activated at 75% of total epochs
+- **SWA** activated at 60% of total epochs
 
 ---
 
