@@ -63,7 +63,7 @@ Here is how we map against the academic landscape:
 | HTSAT-22 | 98.25 | Hierarchical Transformer | Massive (>30M) | 2022 |
 | AST | 95.60 | Audio Spectrogram Transformer | Massive (86M) | 2021 |
 | RACNN | 91.00 | CNN (resource-adaptive) | Mid-Heavy | 2022 |
-| TF-Attention CNN | 84.40 | CNN + attention | ~Lightweight | 2021 |
+| TF-Attention CNN | 84.40 | CNN + attention | ~Lightweight(~2M) | 2021 |
 | **MR-AFCNN (Ours)** | **84.20** | **CNN (Multi-Resolution Focus)** | **Lightweight (~3M)** | **2026** |
 | Human Baseline | 81.30 | Biological / Hearing | N/A | - |
 | Piczak CNN | 64.50 | CNN (Baseline) | Lightweight | 2015 |
